@@ -13,6 +13,7 @@ from tqdm import tqdm
 
 def read_image(image_uri: Union[Path, str], grayscale=False) -> np.array:
     """Read image_uri."""
+
     def read_image_from_filename(image_filename, imread_flag):
         return cv2.imread(str(image_filename), imread_flag)
 
@@ -35,33 +36,24 @@ def read_image(image_uri: Union[Path, str], grayscale=False) -> np.array:
     return img
 
 
-# Hide lines below until Lab 9
-def read_b64_image(b64_string, grayscale=False):
-    """Load base64-encoded images."""
-    import base64
-    imread_flag = cv2.IMREAD_GRAYSCALE if grayscale else cv2.IMREAD_COLOR
-    try:
-        _, b64_data = b64_string.split(',')
-        return cv2.imdecode(np.frombuffer(base64.b64decode(b64_data), np.uint8), imread_flag)
-    except Exception as e:
-        raise ValueError("Could not load image from b64 {}: {}".format(b64_string, e))
-# Hide lines above until Lab 9
-
-
 def write_image(image: np.ndarray, filename: Union[Path, str]) -> None:
+    """Write image to file."""
     cv2.imwrite(str(filename), image)
 
 
 def compute_sha256(filename: Union[Path, str]):
     """Return SHA256 checksum of a file."""
-    with open(filename, 'rb') as f:
+    with open(filename, "rb") as f:
         return hashlib.sha256(f.read()).hexdigest()
 
 
 class TqdmUpTo(tqdm):
     """From https://github.com/tqdm/tqdm/blob/master/examples/tqdm_wget.py"""
+
     def update_to(self, blocks=1, bsize=1, tsize=None):
         """
+        Parameters
+        ----------
         blocks : int, optional
             Number of blocks transferred so far [default: 1].
         bsize  : int, optional
@@ -76,17 +68,20 @@ class TqdmUpTo(tqdm):
 
 def download_url(url, filename):
     """Download a file from url to filename, with a progress bar."""
-    with TqdmUpTo(unit='B', unit_scale=True, unit_divisor=1024, miniters=1) as t:
+    with TqdmUpTo(unit="B", unit_scale=True, unit_divisor=1024, miniters=1) as t:
         urlretrieve(url, filename, reporthook=t.update_to, data=None)  # nosec
 
 
-# Hide lines below until Lab 7
+# Hide lines below until Lab 6
 def download_urls(urls, filenames):
+    """Download urls to filenames in a multi-threaded way."""
     with ThreadPoolExecutor() as executor:
         futures = [executor.submit(urlretrieve, url, filename) for url, filename in zip(urls, filenames)]
         for future in tqdm(as_completed(futures), total=len(futures)):
             try:
                 future.result()
-            except Exception as e:
-                print('Error', e)
-# Hide lines above until Lab 7
+            except Exception as e:  # pylint: disable=broad-except
+                print("Error", e)
+
+
+# Hide lines above until Lab 6

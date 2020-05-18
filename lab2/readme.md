@@ -1,83 +1,62 @@
-# Lab 2: Single-character prediction
+# Lab 2: Convolutional Nets
 
 ## Goal of the lab
 
-Train a model to solve a simplified version of the line text recognition problem.
-
-## Outline
-
-- Intro to EMNIST, a character prediction dataset.
-- Explore the `networks` and `training` code.
-- Train simple MLP/CNN baselines to solve EMNIST.
-- Test your model.
+- Use a simple convolutional network to recognize EMNIST characters.
+- Construct a synthetic dataset of EMNIST lines.
+- Move from reading single characters to reading lines.
 
 ## Follow along
 
 ```
-cd lab2_sln/
+git pull
+cd lab2
 ```
 
-## Intro to EMNIST
+## Using a convolutional network for recognizing EMNIST characters
 
-- EMNIST = Extended Mini-NIST :)
-- All English letters and digits presented in the MNIST format.
-- Look at: `notebooks/01-look-at-emnist.ipynb`
-
-## Networks and training code
-
-- Look at `text_recognizer/networks/mlp.py`
-- Look at `text_recognizer/networks/lenet.py`
-- Look at `text_recognizer/models/base.py`
-- Look at `text_recognizer/models/character_model.py`
-- Look at `training/util.py`
-
-## Train MLP and CNN
-
-You can run the shortcut command `tasks/train_character_predictor.sh`, which runs the following:
-
-```sh
-pipenv run training/run_experiment.py --save '{"dataset": "EmnistDataset", "model": "CharacterModel", "network": "mlp",  "train_args": {"batch_size": 256}}'
-```
-
-It will take a couple of minutes to train your model.
-
-Just for fun, you could also try a larger MLP, with a smaller batch size:
-
-```sh
-pipenv run training/run_experiment.py '{"dataset": "EmnistDataset", "model": "CharacterModel", "network": "mlp", "network_args": {"num_layers": 8}, "train_args": {"batch_size": 128}}'
-```
+We left off in Lab 1 having trained an MLP model on the EMNIST characters dataset.
 
 Let's also train a CNN on the same task.
+We can start in the notebook `notebooks/01b-cnn-for-emnist.ipynb`.
+
+We can also run the same experiment with
 
 ```sh
-pipenv run training/run_experiment.py '{"dataset": "EmnistDataset", "model": "CharacterModel", "network": "lenet", "train_args": {"epochs": 1}}'
+training/run_experiment.py '{"dataset": "EmnistDataset", "model": "CharacterModel", "network": "lenet", "train_args": {"epochs": 1}}'
 ```
 
 Training the single epoch will take about 2 minutes (that's why we only do one epoch in this lab :)).
 Leave it running while we go on to the next part.
 
+### Subsampling data
 
 It is very useful to be able to subsample the dataset for quick experiments.
 This is possibe by passing `subsample_fraction=0.1` (or some other fraction) at dataset initialization, or in `dataset_args` in the `run_experiment.py` dictionary, for example:
 
 ```sh
-pipenv run training/run_experiment.py '{"dataset": "EmnistDataset", "dataset_args": {"subsample_fraction": 0.1}, "model": "CharacterModel", "network": "mlp"}'
+training/run_experiment.py '{"dataset": "EmnistDataset", "dataset_args": {"subsample_fraction": 0.25}, "model": "CharacterModel", "network": "lenet"}'
 ```
 
-## Testing
+## Making a synthetic dataset of EMNIST Lines
 
-First, let's take a look at how the test works at
+- Synthetic dataset we built for this project
+- Sample sentences from Brown corpus
+- For each character, sample random EMNIST character and place on a line (with some random overlap)
+- Look at: `notebooks/02-look-at-emnist-lines.ipynb`
 
-```
-text_recognizer/tests/test_character_predictor.py
-```
+## Reading multiple characters at once
 
-Now let's see if it works by running:
+Now that we have a dataset of lines and not just single characters, we can apply our convolutional net to it.
+
+Let's look at `notebooks/02b-cnn-for-simple-emnist-lines.ipynb`, where we generate a datset with at most 8 characters and no overlap.
+
+The first network we try is simply the same LeNet network we used for single characters, applied to each character in sequence, using the `TimeDistributed` layer.
+
+We can also express the same network using all convolutional layers, which we do next.
+
+We can train this model with a command, too:
 
 ```sh
-pipenv run pytest -s text_recognizer/tests/test_character_predictor.py
+python training/run_experiment.py --save '{"train_args": {"epochs": 5}, "dataset": "EmnistLinesDataset", "dataset_args": {"categorical_format": true, "max_length": 8, "max_overlap": 0}, "model": "LineModel", "network": "line_cnn_all_conv"}'
 ```
-
-Or, use the shorthand `tasks/run_prediction_tests.sh`
-
-Testing should finish quickly.

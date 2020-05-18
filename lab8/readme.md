@@ -1,49 +1,109 @@
-# Lab 8: Testing and Continuous Integration
+# Lab 8: Web Deployment
 
-As always, the first thing to do is `git pull` :)
+## Goal of the lab
 
-In this lab, we will
+- Run our LinePredictor as a web app, and send it some requests
+- Dockerize our web app
+- Deploy our web app to production
 
-- Add evaluation tests
-- Add linting to our codebase
-- Set up continuous integration via CircleCI, and see our commits pass/fail
+## Follow along
 
-## Linting script
+```
+git pull
+cd lab8/
+```
 
-Running `tasks/lint.sh` fully lints our codebase with a few different checkers:
+This lab has quite a few new files, mostly in the new `api/` directory.
 
-- `pipenv check` scans our Python package dependency graph for known security vulnerabilities
-- `pylint` does static analysis of Python files and reports both style and bug problems
-- `pycodestyle` checks for simple code style guideline violations (somewhat overlapping with `pylint`)
-- `mypy` performs static type checking of Python files
-- `bandit` performs static analysis to find common security vulnerabilities in Python code
-- `shellcheck` finds bugs and potential bugs in shell scrips
+## Serving predictions from a web server
 
-A note: in writing Bash scripts, I often refer to [this excellent guide](http://redsymbol.net/articles/unofficial-bash-strict-mode/).
+First, we will get a Flask web server up and running and serving predictions.
 
-Note that the linters are configured using `.pylintrc` and `setup.cfg` files, as well as flags specified in `lint.sh`.
+```
+python api/app.py
+```
 
-Getting linting right will pay off in no time, and is a must for any multi-developer codebase.
+Open up another terminal tab (click on the '+' button under 'File' to open the
+launcher). In this terminal, we'll send some test image to the web server
+we're running in the first terminal.
 
-## Setting up CircleCI
+**Make sure to `cd` into the `lab8` directory in this new terminal.**
 
-The relevant new files for setting up continuous integration are
+```
+export API_URL=http://0.0.0.0:8000
+curl -X POST "${API_URL}/v1/predict" -H 'Content-Type: application/json' --data '{ "image": "data:image/png;base64,'$(base64 -w0 -i text_recognizer/tests/support/emnist_lines/or\ if\ used\ the\ results.png)'" }'
+```
 
-- `evaluation/evaluate_character_predictor.py`
-- `evaluation/evaluate_line_predictor.py`
-- `tasks/run_validation_tests.sh`
+If you want to look at the image you just sent, you can navigate to
+`lab8/text_recognizer/tests/support/emnist_lines` in the file browser on the
+left, and open the image.
 
-There is one additional file that is outside of the lab8 directory (in the top-level directory): `.circleci/config.yml`
+We can also send a request specifying a URL to an image:
+```
+curl "${API_URL}/v1/predict?image_url=http://s3-us-west-2.amazonaws.com/fsdl-public-assets/emnist_lines/or%2Bif%2Bused%2Bthe%2Bresults.png"
+```
 
-Let's set up CircleCI first and then look at the new evaluation files.
+You can shut down your flask server now.
 
-Go to https://circleci.com and log in with your Github account.
-Click on Add Project. Select your fork of the `fsdl-text-recognizer-project` repo.
-It will ask you to place the `config.yml` file in the repo.
-Good news -- it's already there, so you can just hit the "Start building" button.
+## Adding web server tests
 
-While CircleCI starts the build, let's look at the `config.yml` file.
+The web server code should have a unit test just like the rest of our code.
 
-Let's also check out the new validation test files: they simply evaluate the trained predictors on respective test sets, and make sure they are above threshold accuracy.
+Let's check it out: the tests are in `api/tests/test_app.py`.
+You can run them with
 
-Now that CircleCI is done building, let's push a commit so that we can see it build again, and check out the nice green chechmark in our commit history (https://github.com/sergeyktest/fsdl-text-recognizer-project/commits/master)
+```sh
+tasks/test_api.sh
+```
+
+## Running web server in Docker
+
+Now, we'll build a docker image with our application.
+The Dockerfile in `api/Dockerfile` defines how we're building the docker image.
+
+Still in the `lab8` directory, run:
+
+```sh
+tasks/build_api_docker.sh
+```
+
+This should take a couple of minutes to complete.
+
+When it's finished, you can run the server with `tasks/run_api_docker.sh`
+
+
+You can run the same curl commands as you did when you ran the flask server earlier, and see that you're getting the same results.
+
+```
+curl -X POST "${API_URL}/v1/predict" -H 'Content-Type: application/json' --data '{ "image": "data:image/png;base64,'$(base64 -w0 -i text_recognizer/tests/support/emnist_lines/or\ if\ used\ the\ results.png)'" }'
+
+curl "${API_URL}/v1/predict?image_url=http://s3-us-west-2.amazonaws.com/fsdl-public-assets/emnist_lines/or%2Bif%2Bused%2Bthe%2Bresults.png"
+```
+
+If needed, you can connect to your running docker container by running:
+
+```sh
+docker exec -it api bash
+```
+
+You can shut down your docker container now.
+
+We could deploy this container to a number of platforms.
+In this lab, we will deploy the app as a Docker container using https://render.com
+
+## Web deployment
+
+TODO: render.com
+
+As before, we can test out our API by running a few curl commands (from the `lab8` directory). We need to change the `API_URL` first though to point it at Lambda:
+
+```
+export API_URL="https://REPLACE_THIS.execute-api.us-west-2.amazonaws.com/dev/"
+curl -X POST "${API_URL}/v1/predict" -H 'Content-Type: application/json' --data '{ "image": "data:image/png;base64,'$(base64 -w0 -i text_recognizer/tests/support/emnist_lines/or\ if\ used\ the\ results.png)'" }'
+curl "${API_URL}/v1/predict?image_url=http://s3-us-west-2.amazonaws.com/fsdl-public-assets/emnist_lines/or%2Bif%2Bused%2Bthe%2Bresults.png"
+```
+
+If the POST request fails, it's probably because you are in `api` and not in the top-level `lab8` directory.
+
+You'll want to run the curl commands a couple of times -- the first execution may time out, because the function has to "warm up."
+After the first request, it will stay warm for 10-60 minutes.

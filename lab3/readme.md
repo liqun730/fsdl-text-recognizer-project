@@ -1,27 +1,20 @@
-# Lab 3
+# Lab 3: Using a sequence model for line text recognition
 
 ## Goal of the lab
 
-Move from reading single characters to reading entire lines.
+Use sequence modeling to be able to handle overlapping characters (input sequence no longer maps neatly onto output sequence).
 
 ## Outline
 
-- Intro to EMNIST Lines
 - Overview of the model, network, and loss
 - Train an LSTM on EMNIST
 
 ## Follow along
 
 ```
-cd lab3_sln/
+git pull
+cd lab3
 ```
-
-## Intro to the EMNIST Lines dataset
-
-- Synthetic dataset we built for this project
-- Sample sentences from Brown corpus
-- For each character, sample random EMNIST character and place on a line (with some random overlap)
-- Look at: `notebooks/02-look-at-emnist-lines.ipynb`
 
 ## Overview of model and loss
 
@@ -34,7 +27,7 @@ cd lab3_sln/
 Let's train an LSTM model with CTC loss.
 
 ```sh
-pipenv run python training/run_experiment.py --save '{"train_args": {"epochs": 16}, "dataset": "EmnistLinesDataset", "model": "LineModelCtc", "network": "line_lstm_ctc"}'
+python training/run_experiment.py --save '{"train_args": {"epochs": 16}, "dataset": "EmnistLinesDataset", "dataset_args": {"categorical_format": true}, "model": "LineModelCtc", "network": "line_lstm_ctc"}'
 ```
 
 or the shortcut `tasks/train_lstm_line_predictor.sh`
@@ -43,3 +36,14 @@ or the shortcut `tasks/train_lstm_line_predictor.sh`
 
 If you have time left over, or want to play around with this later on, you can try writing your own non-CTC `line_lstm` network (define it in `text_recognizer/networks/line_lstm.py`).
 For example, you could code up an encoder-decoder architecture with attention.
+
+## Addendum: Transformer-based model
+
+We have updated the data format for `EmnistLinesDataset`, so make sure to
+
+```
+git pull
+rm -r fsdl-text-recognizer/data/processed/emnist_lines/
+```
+
+Go through `notebooks/02c-transformer.ipynb` and the files it imports to see a Transformer-based approach to this problem.
